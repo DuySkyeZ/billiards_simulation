@@ -608,8 +608,6 @@ class FPPView {
         const cb = this.state.cueBall;
 
         if (!cb) {
-            // Default: south-side elevated overview matching 2D table orientation
-            // Left in FPP = Left in 2D, Forward in FPP = Up in 2D
             this._targetCamPos.set(0, 5, -5.5);
             this._targetLookAt.set(0, 0, 0);
             return;
@@ -617,35 +615,33 @@ class FPPView {
 
         const cbPos = this._toWorld(cb);
 
-        // Camera always at the south side of the table (negative Z = bottom of 2D)
-        // looking north (+Z = top of 2D). This keeps table orientation consistent
-        // with the 2D view: left=left, right=right, forward=up.
-        const camX = cbPos.x * 0.5;  // Follow cue ball X, damped toward center
-        const camZ = cbPos.z - 3.5;  // Always behind (south of) cue ball
-        const camY = 2.8;
-
-        this._targetCamPos.set(camX, camY, camZ);
-
         if (this.state.shot && this.state.aimDirection !== null) {
-            const ghostPos = this._toWorld(this.state.shot.ghostBall);
-            // Look at midpoint between cue ball and ghost ball to frame the shot
-            const lookX = (cbPos.x + ghostPos.x) * 0.5;
-            const lookZ = (cbPos.z + ghostPos.z) * 0.5;
-            this._targetLookAt.set(lookX, this.BR, lookZ);
-        } else {
-            // Look at a point north of the cue ball
-            this._targetLookAt.set(cbPos.x * 0.3, 0, cbPos.z + 2.5);
-        }
+            // === SHOT MODE: Camera behind cue ball, aiming straight at target ===
+            const angle = this.state.aimDirection;
+            const aimX = Math.cos(angle) * this.S * 100;
+            const aimZ = -Math.sin(angle) * this.S * 100;
+            const aimDir = new THREE.Vector3(aimX, 0, aimZ).normalize();
 
-        // Ensure camera is always south of the lookAt point (consistent orientation)
-        if (this._targetCamPos.z >= this._targetLookAt.z - 1.0) {
-            this._targetCamPos.z = this._targetLookAt.z - 3.0;
+            // Position camera behind cue ball along shot line
+            // Low height + close distance = player's eye view for precise aiming
+            const camBack = aimDir.clone().multiplyScalar(-1.8);
+            camBack.y = 0.8; // Low, near table level for accurate aiming
+            this._targetCamPos.copy(cbPos).add(camBack);
+
+            // Look straight at the ghost ball (aim point)
+            const ghostPos = this._toWorld(this.state.shot.ghostBall);
+            this._targetLookAt.copy(ghostPos);
+            this._targetLookAt.y = this.BR;
+        } else {
+            // No shot: elevated view behind cue ball
+            this._targetCamPos.set(cbPos.x * 0.5, 3.5, cbPos.z - 3.0);
+            this._targetLookAt.set(0, 0, 0);
         }
 
         // Clamp camera bounds
-        this._targetCamPos.x = Math.max(-6, Math.min(6, this._targetCamPos.x));
-        this._targetCamPos.z = Math.max(-7, Math.min(3, this._targetCamPos.z));
-        this._targetCamPos.y = Math.max(0.5, this._targetCamPos.y);
+        this._targetCamPos.x = Math.max(-7, Math.min(7, this._targetCamPos.x));
+        this._targetCamPos.z = Math.max(-6, Math.min(6, this._targetCamPos.z));
+        this._targetCamPos.y = Math.max(0.3, this._targetCamPos.y);
     }
 
     _updateShotPaths() {
