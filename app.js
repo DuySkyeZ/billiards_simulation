@@ -55,8 +55,8 @@
             ctx.stroke();
         }
 
-        // Head string
-        const headStringX = PLAY.left + PLAY.width * 0.25;
+        // Head string (vertical, near right side for horizontal table)
+        const headStringX = PLAY.left + PLAY.width * 0.75;
         ctx.strokeStyle = 'rgba(255,255,255,0.15)';
         ctx.lineWidth = 1;
         ctx.setLineDash([8, 8]);
@@ -66,9 +66,9 @@
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Spots
+        // Spots (along center horizontal axis)
         ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        [0.5, 0.75].forEach(frac => {
+        [0.25, 0.5].forEach(frac => {
             ctx.beginPath();
             ctx.arc(PLAY.left + PLAY.width * frac, PLAY.top + PLAY.height * 0.5, 3, 0, Math.PI * 2);
             ctx.fill();
@@ -101,17 +101,19 @@
     function drawDiamonds() {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
         const size = 4;
-        const midY1 = (8 + PLAY.top) / 2;
-        const midY2 = (PLAY.bottom + TABLE.height - 8) / 2;
         const midX1 = (8 + PLAY.left) / 2;
         const midX2 = (PLAY.right + TABLE.width - 8) / 2;
+        const midY1 = (8 + PLAY.top) / 2;
+        const midY2 = (PLAY.bottom + TABLE.height - 8) / 2;
 
+        // 7 diamonds on long sides (top & bottom rails)
         for (let i = 1; i <= 7; i++) {
             if (i === 4) continue;
             const x = PLAY.left + (PLAY.width / 8) * i;
             diamond(x, midY1, size);
             diamond(x, midY2, size);
         }
+        // 3 diamonds on short sides (left & right rails)
         for (let i = 1; i <= 3; i++) {
             const y = PLAY.top + (PLAY.height / 4) * i;
             diamond(midX1, y, size);
@@ -506,6 +508,10 @@
 
         // Shot results
         updateShotResults();
+
+        // Contact detail views
+        drawContactDetail();
+        drawCueTipDetail();
     }
 
     function updateBallChips() {
@@ -535,7 +541,9 @@
                 if (state.analyzed) {
                     state.selectedBallIdx = idx;
                     state.activeShot = 0;
+                    syncSpinPowerToShot();
                     updateUI();
+                    updateFPP();
                 }
             });
         });
@@ -547,6 +555,7 @@
                 state.targetBalls.forEach((b, i) => { b.color = BALL_COLORS[i % BALL_COLORS.length]; });
                 clearAnalysis();
                 updateUI();
+                updateFPP();
             });
         });
     }
@@ -577,6 +586,8 @@
         updateSpinDisplay();
         if (state.analyzed) runAnalysis();
         updateFPP();
+        drawContactDetail();
+        drawCueTipDetail();
     }
 
     spinSelector.addEventListener('mousedown', (e) => { spinDragging = true; updateSpinFromEvent(e); });
@@ -589,6 +600,8 @@
         updateSpinDisplay();
         if (state.analyzed) runAnalysis();
         updateFPP();
+        drawContactDetail();
+        drawCueTipDetail();
     });
 
     function updateSpinDisplay() {
@@ -821,6 +834,399 @@
         return { straight: '🎯', cut: '📐', bank: '💎', kick: '🦵' }[type] || '🎱';
     }
 
+    // ========== CONTACT DETAIL VIEW ==========
+    // Matching reference: two balls overlapping side-by-side on neutral background,
+    // cue ball in front, target ball behind, overlap shows cut fullness.
+
+    function drawContactDetail() {
+        const cvs = document.getElementById('contactCanvas');
+        if (!cvs) return;
+        const c = cvs.getContext('2d');
+        const W = cvs.width, H = cvs.height;
+
+        c.clearRect(0, 0, W, H);
+
+        // Neutral gray background (matching reference image)
+        const bgGrad = c.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.6);
+        bgGrad.addColorStop(0, '#4a4a4a');
+        bgGrad.addColorStop(1, '#333333');
+        c.fillStyle = bgGrad;
+        c.fillRect(0, 0, W, H);
+
+        const infoEl = document.getElementById('contactInfo');
+
+        if (!state.analyzed || state.selectedBallIdx === null || state.activeShot === null || !state.cueBall) {
+            c.fillStyle = '#777';
+            c.font = '13px Arial';
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.fillText('Chọn thế đánh để xem chi tiết va chạm', W / 2, H / 2);
+            if (infoEl) infoEl.innerHTML = '<span class="contact-info-item">Chọn thế đánh để xem chi tiết</span>';
+            return;
+        }
+
+        const result = state.results.find(r => r.ballIndex === state.selectedBallIdx);
+        if (!result) return;
+        const shot = result.shots[state.activeShot];
+        if (!shot) return;
+        const tb = state.targetBalls[state.selectedBallIdx];
+        if (!tb) return;
+
+        // ---- Contact geometry ----
+        const aimAngle = Math.atan2(shot.ghostBall.y - state.cueBall.y, shot.ghostBall.x - state.cueBall.x);
+        const g2t = Math.atan2(tb.y - shot.ghostBall.y, tb.x - shot.ghostBall.x);
+        const relAngle = g2t - aimAngle; // signed cut angle in radians
+
+        // Ball radius (same size, like reference image)
+        const R = 75;
+
+        // Both balls at same vertical center
+        const centerY = H * 0.46;
+
+        // Cue ball at center of canvas
+        const cueX = W / 2;
+        const cueY = centerY;
+
+        // Target ball offset laterally by cut angle (overlap = fullness)
+        // sin(relAngle) * 2R = lateral distance between centers
+        const lateralOffset = Math.sin(relAngle) * 2 * R;
+        const targetX = cueX + lateralOffset;
+        const targetY = centerY;
+
+        // ---- Drop shadow on "floor" ----
+        c.save();
+        c.fillStyle = 'rgba(0,0,0,0.15)';
+        c.beginPath();
+        c.ellipse(cueX, centerY + R + 6, R * 0.8, 8, 0, 0, Math.PI * 2);
+        c.fill();
+        if (Math.abs(lateralOffset) > R * 0.3) {
+            c.beginPath();
+            c.ellipse(targetX, centerY + R + 6, R * 0.8, 8, 0, 0, Math.PI * 2);
+            c.fill();
+        }
+        c.restore();
+
+        // ---- Draw target ball FIRST (behind cue ball) ----
+        c.save();
+        c.globalAlpha = 0.8;
+        drawDetailBall(c, targetX, targetY, R, tb.color, state.selectedBallIdx + 1, false);
+        c.restore();
+
+        // ---- Draw cue ball (in front, fully opaque) ----
+        drawDetailBall(c, cueX, cueY, R, '#ffffff', '', true);
+
+        // ---- Spin indicator dots on cue ball (red dots like reference) ----
+        const maxOff = R * 0.55;
+        const spinDotX = cueX + state.spin.x * maxOff;
+        const spinDotY = cueY + state.spin.y * maxOff;
+
+        // Main spin dot (red)
+        c.fillStyle = '#d94040';
+        c.beginPath();
+        c.arc(spinDotX, spinDotY, 5.5, 0, Math.PI * 2);
+        c.fill();
+        c.strokeStyle = 'rgba(255,255,255,0.4)';
+        c.lineWidth = 1;
+        c.stroke();
+
+        // Two small reference dots on the cue ball face (like reference image)
+        // These help show the ball's orientation
+        const refDots = [
+            { dx: -R * 0.22, dy: R * 0.32 },
+            { dx: R * 0.15, dy: -R * 0.28 },
+        ];
+        refDots.forEach(d => {
+            c.fillStyle = 'rgba(180, 60, 60, 0.35)';
+            c.beginPath();
+            c.arc(cueX + d.dx, cueY + d.dy, 3, 0, Math.PI * 2);
+            c.fill();
+        });
+
+        // ---- Fullness bar at bottom ----
+        const fullness = Math.cos(shot.cutAngleDeg * Math.PI / 180);
+        const barW = 150, barH = 6;
+        const barX = W / 2 - barW / 2, barY = H - 30;
+
+        c.fillStyle = '#2a2a2a';
+        c.beginPath();
+        c.roundRect(barX, barY, barW, barH, 3);
+        c.fill();
+
+        const gradient = c.createLinearGradient(barX, 0, barX + barW, 0);
+        gradient.addColorStop(0, '#e74c3c');
+        gradient.addColorStop(0.5, '#f1c40f');
+        gradient.addColorStop(1, '#2ecc71');
+        c.fillStyle = gradient;
+        c.beginPath();
+        c.roundRect(barX, barY, barW * fullness, barH, 3);
+        c.fill();
+
+        // Thickness label
+        const thickness = shot.cutAngleDeg < 5 ? 'Full ball' :
+            shot.cutAngleDeg < 15 ? '3/4 bi (dày)' :
+                shot.cutAngleDeg < 30 ? '1/2 bi' :
+                    shot.cutAngleDeg < 50 ? '1/4 bi (mỏng)' : '1/8 bi (rất mỏng)';
+        c.fillStyle = '#aaa';
+        c.font = '11px Arial';
+        c.textAlign = 'center';
+        c.fillText(thickness, W / 2, H - 12);
+
+        // Cut angle badge (top-right corner)
+        if (shot.cutAngleDeg > 1) {
+            const angleText = `${shot.cutAngleDeg.toFixed(1)}°`;
+            c.font = 'bold 12px Arial';
+            c.fillStyle = 'rgba(241, 196, 15, 0.8)';
+            c.textAlign = 'right';
+            c.textBaseline = 'top';
+            c.fillText(angleText, W - 10, 10);
+        }
+
+        // Update info text
+        if (infoEl) {
+            const hitSide = shot.hitSide ? `Đánh bên ${shot.hitSide}` : 'Đánh thẳng';
+            infoEl.innerHTML = `
+                <span class="contact-info-item highlight">${thickness}</span>
+                <span class="contact-info-item">${hitSide}</span>
+                <span class="contact-info-item">Góc cắt: ${shot.cutAngleDeg.toFixed(1)}°</span>
+                <span class="contact-info-item">→ ${shot.pocket.name}</span>
+            `;
+        }
+    }
+
+    function drawCueTipDetail() {
+        const cvs = document.getElementById('cueTipCanvas');
+        if (!cvs) return;
+        const c = cvs.getContext('2d');
+        const W = cvs.width, H = cvs.height;
+
+        c.clearRect(0, 0, W, H);
+        c.fillStyle = '#12122a';
+        c.fillRect(0, 0, W, H);
+
+        const infoEl = document.getElementById('cueTipInfo');
+        const R = 95; // large ball radius
+        const cx = W / 2, cy = H / 2;
+
+        // Draw the cue ball seen from behind (player's perspective)
+        // Shadow
+        c.fillStyle = 'rgba(0,0,0,0.25)';
+        c.beginPath();
+        c.arc(cx + 3, cy + 3, R, 0, Math.PI * 2);
+        c.fill();
+
+        // Ball gradient
+        const grad = c.createRadialGradient(cx - R * 0.2, cy - R * 0.25, R * 0.05, cx, cy, R);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.5, '#f0f0f0');
+        grad.addColorStop(0.8, '#d8d8d8');
+        grad.addColorStop(1, '#aaaaaa');
+        c.fillStyle = grad;
+        c.beginPath();
+        c.arc(cx, cy, R, 0, Math.PI * 2);
+        c.fill();
+
+        // Subtle edge
+        c.strokeStyle = 'rgba(0,0,0,0.15)';
+        c.lineWidth = 1;
+        c.stroke();
+
+        // Highlight
+        c.fillStyle = 'rgba(255,255,255,0.3)';
+        c.beginPath();
+        c.arc(cx - R * 0.3, cy - R * 0.3, R * 0.35, 0, Math.PI * 2);
+        c.fill();
+
+        // Crosshair lines (reference grid)
+        c.strokeStyle = 'rgba(100,100,100,0.2)';
+        c.lineWidth = 1;
+        c.beginPath();
+        c.moveTo(cx - R * 0.85, cy); c.lineTo(cx + R * 0.85, cy);
+        c.moveTo(cx, cy - R * 0.85); c.lineTo(cx, cy + R * 0.85);
+        c.stroke();
+
+        // Clock position labels (subtle)
+        c.fillStyle = 'rgba(150,150,150,0.3)';
+        c.font = '9px Arial';
+        c.textAlign = 'center';
+        c.textBaseline = 'middle';
+        c.fillText('12', cx, cy - R * 0.78);
+        c.fillText('6', cx, cy + R * 0.78);
+        c.fillText('3', cx + R * 0.78, cy);
+        c.fillText('9', cx - R * 0.78, cy);
+
+        // Ring guides (concentric circles for distance reference)
+        [0.33, 0.66].forEach(frac => {
+            c.strokeStyle = 'rgba(100,100,100,0.1)';
+            c.lineWidth = 1;
+            c.beginPath();
+            c.arc(cx, cy, R * frac, 0, Math.PI * 2);
+            c.stroke();
+        });
+
+        // Spin point position
+        // spin.x: left(-1) to right(+1) → X on ball face
+        // spin.y: follow(negative, top) to draw(positive, bottom) → Y on ball face
+        const maxOff = R * 0.78;
+        const tipX = cx + state.spin.x * maxOff;
+        const tipY = cy + state.spin.y * maxOff;
+
+        // Glow effect
+        const tipGlow = c.createRadialGradient(tipX, tipY, 0, tipX, tipY, 18);
+        tipGlow.addColorStop(0, 'rgba(231, 76, 60, 0.5)');
+        tipGlow.addColorStop(0.5, 'rgba(231, 76, 60, 0.15)');
+        tipGlow.addColorStop(1, 'rgba(231, 76, 60, 0)');
+        c.fillStyle = tipGlow;
+        c.beginPath();
+        c.arc(tipX, tipY, 18, 0, Math.PI * 2);
+        c.fill();
+
+        // Tip circle (represents cue tip cross-section ~12mm)
+        const tipR = 8;
+        c.fillStyle = '#4488cc'; // chalk blue
+        c.beginPath();
+        c.arc(tipX, tipY, tipR, 0, Math.PI * 2);
+        c.fill();
+        c.strokeStyle = '#fff';
+        c.lineWidth = 2;
+        c.stroke();
+
+        // Inner dot
+        c.fillStyle = '#e74c3c';
+        c.beginPath();
+        c.arc(tipX, tipY, 3, 0, Math.PI * 2);
+        c.fill();
+
+        // Crosshair on tip
+        c.strokeStyle = 'rgba(255,255,255,0.5)';
+        c.lineWidth = 1;
+        c.beginPath();
+        c.moveTo(tipX - tipR - 4, tipY); c.lineTo(tipX + tipR + 4, tipY);
+        c.moveTo(tipX, tipY - tipR - 4); c.lineTo(tipX, tipY + tipR + 4);
+        c.stroke();
+
+        // Distance from center indicator
+        const spinMag = Math.sqrt(state.spin.x * state.spin.x + state.spin.y * state.spin.y);
+        if (spinMag > 0.05) {
+            // Line from center to tip
+            c.strokeStyle = 'rgba(231, 76, 60, 0.3)';
+            c.lineWidth = 1;
+            c.setLineDash([3, 3]);
+            c.beginPath();
+            c.moveTo(cx, cy);
+            c.lineTo(tipX, tipY);
+            c.stroke();
+            c.setLineDash([]);
+
+            // Distance text
+            const distPct = (spinMag * 100).toFixed(0);
+            const midTipX = (cx + tipX) / 2;
+            const midTipY = (cy + tipY) / 2;
+            c.fillStyle = 'rgba(231, 76, 60, 0.7)';
+            c.font = '10px Arial';
+            c.textAlign = 'center';
+            c.fillText(`${distPct}%`, midTipX + 12, midTipY - 8);
+        }
+
+        // Labels at edges
+        c.fillStyle = 'rgba(200,200,200,0.4)';
+        c.font = '10px Arial';
+        c.textAlign = 'center';
+        c.fillText('Follow (đẩy)', cx, 12);
+        c.fillText('Draw (kéo)', cx, H - 6);
+        c.save();
+        c.translate(12, cy);
+        c.rotate(-Math.PI / 2);
+        c.fillText('English trái', 0, 0);
+        c.restore();
+        c.save();
+        c.translate(W - 12, cy);
+        c.rotate(Math.PI / 2);
+        c.fillText('English phải', 0, 0);
+        c.restore();
+
+        // Update info text
+        if (infoEl) {
+            const spin = state.spin;
+            let parts = [];
+            // Determine clock position
+            if (spinMag < 0.1) {
+                parts.push('<span class="contact-info-item highlight">Tâm bi (center)</span>');
+            } else {
+                // Clock angle: 12h = top (-y), clockwise
+                const clockAngle = Math.atan2(spin.x, -spin.y); // x=sin, -y=cos for clock
+                let hours = (clockAngle / (Math.PI * 2) * 12 + 12) % 12;
+                if (hours < 0.5) hours = 12;
+                const hourStr = Math.round(hours) === 0 ? 12 : Math.round(hours);
+                parts.push(`<span class="contact-info-item highlight">${hourStr}h</span>`);
+            }
+
+            if (spin.y < -0.2) parts.push('<span class="contact-info-item">Follow (đẩy)</span>');
+            else if (spin.y > 0.2) parts.push('<span class="contact-info-item">Draw (kéo)</span>');
+            else parts.push('<span class="contact-info-item">Stop/Stun</span>');
+
+            if (spin.x < -0.2) parts.push('<span class="contact-info-item">English trái</span>');
+            else if (spin.x > 0.2) parts.push('<span class="contact-info-item">English phải</span>');
+
+            if (spinMag > 0.7) parts.push('<span class="contact-info-item warn">⚠ Miscue risk</span>');
+
+            infoEl.innerHTML = parts.join('');
+        }
+    }
+
+    function drawDetailBall(c, x, y, r, color, label, isCue) {
+        // Shadow
+        c.fillStyle = 'rgba(0,0,0,0.3)';
+        c.beginPath();
+        c.arc(x + 2, y + 2, r, 0, Math.PI * 2);
+        c.fill();
+
+        // Ball gradient
+        const isWhite = isCue || color === '#fff' || color === '#ffffff';
+        const grad = c.createRadialGradient(x - r * 0.2, y - r * 0.2, r * 0.05, x, y, r);
+        if (isWhite) {
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.6, '#eeeeee');
+            grad.addColorStop(1, '#aaaaaa');
+        } else {
+            grad.addColorStop(0, lighten(color, 60));
+            grad.addColorStop(0.5, color);
+            grad.addColorStop(1, darken(color, 50));
+        }
+        c.fillStyle = grad;
+        c.beginPath();
+        c.arc(x, y, r, 0, Math.PI * 2);
+        c.fill();
+
+        // Edge
+        c.strokeStyle = 'rgba(0,0,0,0.2)';
+        c.lineWidth = 1;
+        c.stroke();
+
+        // Highlight
+        c.fillStyle = 'rgba(255,255,255,0.25)';
+        c.beginPath();
+        c.arc(x - r * 0.25, y - r * 0.25, r * 0.3, 0, Math.PI * 2);
+        c.fill();
+
+        // Number label
+        if (label) {
+            // White circle
+            c.fillStyle = '#ffffff';
+            c.beginPath();
+            c.arc(x, y, r * 0.28, 0, Math.PI * 2);
+            c.fill();
+            c.strokeStyle = '#444';
+            c.lineWidth = 1;
+            c.stroke();
+
+            c.fillStyle = '#000';
+            c.font = `bold ${Math.round(r * 0.32)}px Arial`;
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.fillText(String(label), x, y + 1);
+        }
+    }
+
     // ========== FPP 3D VIEW ==========
     const fppView = new FPPView('fpp-container');
 
@@ -830,7 +1236,7 @@
             spin: { ...state.spin },
             power: state.power,
             cueBall: state.cueBall ? { ...state.cueBall } : null,
-            targetBalls: state.targetBalls.map(b => ({ x: b.x, y: b.y, color: b.color })),
+            targetBalls: state.targetBalls.map((b, idx) => ({ x: b.x, y: b.y, color: b.color, number: idx + 1 })),
             shot: null,
             aimDirection: null,
         };

@@ -16,13 +16,14 @@ const PoolEngine = (() => {
         width: TABLE.width - 2 * TABLE.cushion, height: TABLE.height - 2 * TABLE.cushion,
     };
 
+    // Horizontal table: Lỗ 1,2,3 = left half; Lỗ 4,5,6 = right half
     const POCKETS = [
-        { id: 0, name: 'Trên-Trái',  x: PLAY.left,                     y: PLAY.top,      corner: true  },
-        { id: 1, name: 'Trên-Giữa',  x: (PLAY.left + PLAY.right) / 2,  y: PLAY.top - 3,  corner: false },
-        { id: 2, name: 'Trên-Phải',  x: PLAY.right,                    y: PLAY.top,      corner: true  },
-        { id: 3, name: 'Dưới-Trái',  x: PLAY.left,                     y: PLAY.bottom,   corner: true  },
-        { id: 4, name: 'Dưới-Giữa',  x: (PLAY.left + PLAY.right) / 2,  y: PLAY.bottom+3, corner: false },
-        { id: 5, name: 'Dưới-Phải',  x: PLAY.right,                    y: PLAY.bottom,   corner: true  },
+        { id: 0, name: 'Lỗ 1 (Trên-Trái)',   x: PLAY.left,                     y: PLAY.top,      corner: true  },
+        { id: 1, name: 'Lỗ 2 (Dưới-Trái)',   x: PLAY.left,                     y: PLAY.bottom,   corner: true  },
+        { id: 2, name: 'Lỗ 3 (Giữa-Trên)',   x: (PLAY.left + PLAY.right) / 2,  y: PLAY.top - 3,  corner: false },
+        { id: 3, name: 'Lỗ 4 (Trên-Phải)',   x: PLAY.right,                    y: PLAY.top,      corner: true  },
+        { id: 4, name: 'Lỗ 5 (Dưới-Phải)',   x: PLAY.right,                    y: PLAY.bottom,   corner: true  },
+        { id: 5, name: 'Lỗ 6 (Giữa-Dưới)',   x: (PLAY.left + PLAY.right) / 2,  y: PLAY.bottom+3, corner: false },
     ];
 
     const WALLS = [
@@ -113,8 +114,10 @@ const PoolEngine = (() => {
     // ========== DIAMOND SYSTEM ==========
     function getDiamondNumber(pos, wall) {
         if (wall.reflect === 'y') {
+            // Top/bottom walls: diamonds along long axis (width)
             return ((pos.x - PLAY.left) / PLAY.width * 8).toFixed(1);
         } else {
+            // Left/right walls: diamonds along short axis (height)
             return ((pos.y - PLAY.top) / PLAY.height * 4).toFixed(1);
         }
     }

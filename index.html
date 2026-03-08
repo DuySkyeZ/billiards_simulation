@@ -38,12 +38,13 @@
                 <div class="canvas-wrapper">
                     <canvas id="poolTable" width="900" height="500"></canvas>
                     <div class="pocket-labels">
-                        <span class="pocket-label" style="top: -20px; left: 15px;">Lỗ 1</span>
-                        <span class="pocket-label" style="top: -20px; left: 50%; transform: translateX(-50%);">Lỗ 2</span>
-                        <span class="pocket-label" style="top: -20px; right: 15px;">Lỗ 3</span>
-                        <span class="pocket-label" style="bottom: -20px; left: 15px;">Lỗ 4</span>
-                        <span class="pocket-label" style="bottom: -20px; left: 50%; transform: translateX(-50%);">Lỗ 5</span>
-                        <span class="pocket-label" style="bottom: -20px; right: 15px;">Lỗ 6</span>
+                        <!-- Lỗ 1,2,3 = left half; Lỗ 4,5,6 = right half -->
+                        <span class="pocket-label" style="top: -18px; left: 10px;">Lỗ 1</span>
+                        <span class="pocket-label" style="bottom: -18px; left: 10px;">Lỗ 2</span>
+                        <span class="pocket-label" style="top: -18px; left: 50%; transform: translateX(-50%);">Lỗ 3</span>
+                        <span class="pocket-label" style="top: -18px; right: 10px;">Lỗ 4</span>
+                        <span class="pocket-label" style="bottom: -18px; right: 10px;">Lỗ 5</span>
+                        <span class="pocket-label" style="bottom: -18px; left: 50%; transform: translateX(-50%);">Lỗ 6</span>
                     </div>
                 </div>
 
@@ -94,6 +95,25 @@
                         <span>Mạnh</span>
                     </div>
                     <div class="power-value">Lực: <span id="powerValue">5</span>/10</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="contact-detail-section" id="contact-detail-section">
+            <div class="contact-detail-row">
+                <div class="contact-detail-card" id="contact-detail-card">
+                    <h3>Chi Tiết Va Chạm</h3>
+                    <canvas id="contactCanvas" width="400" height="280"></canvas>
+                    <div class="contact-info" id="contactInfo">
+                        <span class="contact-info-item">Chọn thế đánh để xem chi tiết</span>
+                    </div>
+                </div>
+                <div class="contact-detail-card" id="cue-tip-card">
+                    <h3>Điểm Đánh Trên Bi Cái</h3>
+                    <canvas id="cueTipCanvas" width="260" height="260"></canvas>
+                    <div class="cue-tip-info" id="cueTipInfo">
+                        <span class="contact-info-item">Vị trí tip cơ chạm bi cái</span>
+                    </div>
                 </div>
             </div>
         </div>

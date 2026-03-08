@@ -582,6 +582,71 @@ body {
     justify-content: center;
 }
 
+/* Contact Detail Section */
+.contact-detail-section {
+    margin-top: 20px;
+}
+
+.contact-detail-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.contact-detail-card {
+    background: #222240;
+    border-radius: 12px;
+    padding: 14px;
+    border: 1px solid #333;
+    flex: 1 1 300px;
+    min-width: 0;
+}
+
+.contact-detail-card h3 {
+    font-size: 14px;
+    margin-bottom: 10px;
+    color: #f0f0f0;
+    border-bottom: 1px solid #333;
+    padding-bottom: 6px;
+}
+
+#contactCanvas,
+#cueTipCanvas {
+    display: block;
+    width: 100%;
+    border-radius: 8px;
+    background: #12122a;
+}
+
+.contact-info,
+.cue-tip-info {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 11px;
+    color: #999;
+}
+
+.contact-info-item {
+    padding: 3px 8px;
+    background: #2a2a4a;
+    border-radius: 4px;
+    color: #bbb;
+}
+
+.contact-info-item.highlight {
+    background: rgba(46, 204, 113, 0.15);
+    color: #2ecc71;
+    border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
+.contact-info-item.warn {
+    background: rgba(241, 196, 15, 0.15);
+    color: #f1c40f;
+    border: 1px solid rgba(241, 196, 15, 0.3);
+}
+
 /* FPP 3D View */
 .fpp-section {
     background: #222240;

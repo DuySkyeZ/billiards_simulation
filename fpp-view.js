@@ -11,10 +11,10 @@ class FPPView {
         this.S = 0.01; // scale: 1px = 0.01 3D units
         this.BR = 0.10; // ball radius
         this.PR = 0.22; // pocket radius
-        this.TW = 8.30; // table width (X)
-        this.TD = 4.30; // table depth (Z)
-        this.CX = 450;  // 2D center X
-        this.CY = 250;  // 2D center Y
+        this.TW = 8.30; // table width (X) - long side for horizontal table
+        this.TD = 4.30; // table depth (Z) - short side for horizontal table
+        this.CX = 450;  // 2D center X (900/2)
+        this.CY = 250;  // 2D center Y (500/2)
 
         this.state = {
             spin: { x: 0, y: 0 },
@@ -216,26 +216,26 @@ class FPPView {
         const cushMat = new THREE.MeshStandardMaterial({ color: 0x2D5A28, roughness: 0.7 });
         const pGap = this.PR * 1.5; // gap around pockets
 
-        // Top cushion segments (split at center pocket)
-        const halfW = TW / 2 - pGap * 2;
-        const segLen = halfW;
+        // Horizontal table: long sides = top/bottom (X-axis), short sides = left/right (Z-axis)
+        // Top/bottom cushions split at center pocket
+        const halfLen = TW / 2 - pGap * 2;
 
         // Top-left cushion
-        this._addCushion(cushMat, segLen, CH, CD,
-            -TW / 4, CH / 2, TD / 2 - CD / 2);
-        // Top-right cushion
-        this._addCushion(cushMat, segLen, CH, CD,
-            TW / 4, CH / 2, TD / 2 - CD / 2);
-        // Bottom-left
-        this._addCushion(cushMat, segLen, CH, CD,
+        this._addCushion(cushMat, halfLen, CH, CD,
             -TW / 4, CH / 2, -TD / 2 + CD / 2);
-        // Bottom-right
-        this._addCushion(cushMat, segLen, CH, CD,
+        // Top-right cushion
+        this._addCushion(cushMat, halfLen, CH, CD,
             TW / 4, CH / 2, -TD / 2 + CD / 2);
-        // Left
+        // Bottom-left
+        this._addCushion(cushMat, halfLen, CH, CD,
+            -TW / 4, CH / 2, TD / 2 - CD / 2);
+        // Bottom-right
+        this._addCushion(cushMat, halfLen, CH, CD,
+            TW / 4, CH / 2, TD / 2 - CD / 2);
+        // Left (short side, no center pocket)
         this._addCushion(cushMat, CD, CH, TD - pGap * 2,
             -TW / 2 + CD / 2, CH / 2, 0);
-        // Right
+        // Right (short side, no center pocket)
         this._addCushion(cushMat, CD, CH, TD - pGap * 2,
             TW / 2 - CD / 2, CH / 2, 0);
 
@@ -254,9 +254,10 @@ class FPPView {
 
     _buildPockets() {
         // 2D pocket positions → 3D
+        // Horizontal table: Lỗ 1(TL), 2(BL), 3(TC), 4(TR), 5(BR), 6(BC)
         const pockets2D = [
-            { x: 35, y: 35 }, { x: 450, y: 32 }, { x: 865, y: 35 },
-            { x: 35, y: 465 }, { x: 450, y: 468 }, { x: 865, y: 465 },
+            { x: 35, y: 35 },    { x: 35, y: 465 },   { x: 450, y: 32 },
+            { x: 865, y: 35 },   { x: 865, y: 465 },  { x: 450, y: 468 },
         ];
         const pocketMat = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
 
@@ -287,22 +288,22 @@ class FPPView {
         const dMat = new THREE.MeshBasicMaterial({ color: 0xcccccc, transparent: true, opacity: 0.5 });
         const dGeo = new THREE.CircleGeometry(0.025, 4);
 
-        // Long rails (7 diamonds each, skip #4)
+        // Long rails = top & bottom (along X-axis, 7 diamonds each, skip #4)
         for (let i = 1; i <= 7; i++) {
             if (i === 4) continue;
             const x = -TW / 2 + (TW / 8) * i;
-            // Top
+            // Top rail (negative Z)
             const d1 = new THREE.Mesh(dGeo, dMat);
             d1.rotation.x = -Math.PI / 2;
             d1.rotation.z = Math.PI / 4;
-            d1.position.set(x, 0.19, TD / 2 + RW / 2);
+            d1.position.set(x, 0.19, -TD / 2 - RW / 2);
             this.scene.add(d1);
-            // Bottom
+            // Bottom rail (positive Z)
             const d2 = d1.clone();
-            d2.position.set(x, 0.19, -TD / 2 - RW / 2);
+            d2.position.set(x, 0.19, TD / 2 + RW / 2);
             this.scene.add(d2);
         }
-        // Short rails (3 diamonds each)
+        // Short rails = left & right (along Z-axis, 3 diamonds each)
         for (let i = 1; i <= 3; i++) {
             const z = -TD / 2 + (TD / 4) * i;
             const d1 = new THREE.Mesh(dGeo, dMat);
@@ -404,16 +405,33 @@ class FPPView {
         ctx.fillText(String(num), cx, cy + 1);
     }
 
+    _createDynamicBallTexture(color, number) {
+        const c = document.createElement('canvas');
+        c.width = 256; c.height = 128;
+        const ctx = c.getContext('2d');
+
+        // Solid color ball matching the 2D table representation
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, 256, 128);
+
+        // Number circle - front, back, and wrap
+        this._drawNumberCircle(ctx, 128, 64, number);
+        this._drawNumberCircle(ctx, 0, 64, number);
+        this._drawNumberCircle(ctx, 256, 64, number);
+
+        const tex = new THREE.CanvasTexture(c);
+        return tex;
+    }
+
     _buildTargetBalls() {
         const geo = new THREE.SphereGeometry(this.BR, 48, 48);
         this.ballMeshes = [];
-        this.ballTextures = [];
+        this._ballGeo = geo;
+        this._ballKeys = []; // track color+number to know when to rebuild
 
         for (let i = 0; i < 15; i++) {
-            const tex = this._createBallTexture(this.BALL_DEFS[i]);
-            this.ballTextures.push(tex);
             const mat = new THREE.MeshStandardMaterial({
-                map: tex, roughness: 0.08, metalness: 0.02,
+                roughness: 0.08, metalness: 0.02,
             });
             const mesh = new THREE.Mesh(geo, mat);
             mesh.visible = false;
@@ -515,15 +533,33 @@ class FPPView {
             this.objects.cueBall.visible = false;
         }
 
-        // Target balls
+        // Target balls - sync color/number from 2D table
         const tbs = this.state.targetBalls;
         for (let i = 0; i < 15; i++) {
             if (i < tbs.length) {
-                const pos = this._toWorld(tbs[i]);
+                const ball = tbs[i];
+                const pos = this._toWorld(ball);
                 this.ballMeshes[i].position.copy(pos);
                 this.ballMeshes[i].visible = true;
+
+                // Rebuild texture if color or number changed
+                const key = (ball.color || '#ccc') + '_' + (ball.number || i + 1);
+                if (this._ballKeys[i] !== key) {
+                    this._ballKeys[i] = key;
+                    // Dispose old texture
+                    if (this.ballMeshes[i].material.map) {
+                        this.ballMeshes[i].material.map.dispose();
+                    }
+                    const tex = this._createDynamicBallTexture(
+                        ball.color || '#ccc',
+                        ball.number || i + 1
+                    );
+                    this.ballMeshes[i].material.map = tex;
+                    this.ballMeshes[i].material.needsUpdate = true;
+                }
             } else {
                 this.ballMeshes[i].visible = false;
+                this._ballKeys[i] = null;
             }
         }
     }
@@ -608,7 +644,8 @@ class FPPView {
         const cb = this.state.cueBall;
 
         if (!cb) {
-            this._targetCamPos.set(0, 5, -5.5);
+            // Default: overview from south side of horizontal table
+            this._targetCamPos.set(0, 5, 5);
             this._targetLookAt.set(0, 0, 0);
             return;
         }
@@ -616,32 +653,31 @@ class FPPView {
         const cbPos = this._toWorld(cb);
 
         if (this.state.shot && this.state.aimDirection !== null) {
-            // === SHOT MODE: Camera behind cue ball, aiming straight at target ===
+            // Shot mode: camera behind cue ball along shot line
             const angle = this.state.aimDirection;
             const aimX = Math.cos(angle) * this.S * 100;
             const aimZ = -Math.sin(angle) * this.S * 100;
             const aimDir = new THREE.Vector3(aimX, 0, aimZ).normalize();
 
-            // Position camera behind cue ball along shot line
-            // Low height + close distance = player's eye view for precise aiming
-            const camBack = aimDir.clone().multiplyScalar(-1.8);
-            camBack.y = 0.8; // Low, near table level for accurate aiming
+            // Position camera behind cue ball along shot direction
+            const camBack = aimDir.clone().multiplyScalar(-2.0);
+            camBack.y = 1.0;
             this._targetCamPos.copy(cbPos).add(camBack);
 
-            // Look straight at the ghost ball (aim point)
+            // Look straight at ghost ball for precise aiming
             const ghostPos = this._toWorld(this.state.shot.ghostBall);
             this._targetLookAt.copy(ghostPos);
             this._targetLookAt.y = this.BR;
         } else {
-            // No shot: elevated view behind cue ball
-            this._targetCamPos.set(cbPos.x * 0.5, 3.5, cbPos.z - 3.0);
-            this._targetLookAt.set(0, 0, 0);
+            // No shot: behind cue ball from south side, looking toward table
+            this._targetCamPos.set(cbPos.x * 0.5, 3.0, cbPos.z + 3.5);
+            this._targetLookAt.set(0, 0, cbPos.z - 3.0);
         }
 
         // Clamp camera bounds
-        this._targetCamPos.x = Math.max(-7, Math.min(7, this._targetCamPos.x));
-        this._targetCamPos.z = Math.max(-6, Math.min(6, this._targetCamPos.z));
-        this._targetCamPos.y = Math.max(0.3, this._targetCamPos.y);
+        this._targetCamPos.x = Math.max(-6, Math.min(6, this._targetCamPos.x));
+        this._targetCamPos.z = Math.max(-4, Math.min(7, this._targetCamPos.z));
+        this._targetCamPos.y = Math.max(0.4, this._targetCamPos.y);
     }
 
     _updateShotPaths() {
