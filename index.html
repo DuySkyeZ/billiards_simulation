@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Billiards Pool - Giả Lập Thế Đánh</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>🎱 Billiards Pool - Giả Lập Thế Đánh</h1>
+            <p class="subtitle">Đặt bi cái và nhiều bi mục tiêu, hệ thống sẽ phân tích các thế đánh cho từng bi</p>
+        </header>
+
+        <div class="main-layout">
+            <div class="table-section">
+                <div class="table-controls-top">
+                    <div class="placement-mode">
+                        <button id="btn-place-cue" class="btn-place active" data-ball="cue">
+                            <span class="ball-indicator cue-indicator"></span>
+                            Đặt bi cái
+                        </button>
+                        <button id="btn-place-target" class="btn-place" data-ball="target">
+                            <span class="ball-indicator target-indicator"></span>
+                            Thêm bi mục tiêu
+                        </button>
+                        <button id="btn-analyze" class="btn-analyze" disabled>
+                            Phân Tích Thế Đánh
+                        </button>
+                        <button id="btn-reset" class="btn-reset">
+                            Đặt Lại
+                        </button>
+                    </div>
+                    <div id="ball-chips" class="ball-chips"></div>
+                </div>
+
+                <div class="canvas-wrapper">
+                    <canvas id="poolTable" width="900" height="500"></canvas>
+                    <div class="pocket-labels">
+                        <span class="pocket-label" style="top: -20px; left: 15px;">Lỗ 1</span>
+                        <span class="pocket-label" style="top: -20px; left: 50%; transform: translateX(-50%);">Lỗ 2</span>
+                        <span class="pocket-label" style="top: -20px; right: 15px;">Lỗ 3</span>
+                        <span class="pocket-label" style="bottom: -20px; left: 15px;">Lỗ 4</span>
+                        <span class="pocket-label" style="bottom: -20px; left: 50%; transform: translateX(-50%);">Lỗ 5</span>
+                        <span class="pocket-label" style="bottom: -20px; right: 15px;">Lỗ 6</span>
+                    </div>
+                </div>
+
+                <div class="legend">
+                    <div class="legend-item"><span class="legend-color" style="background: #fff; border: 2px solid #333;"></span> Bi cái</div>
+                    <div class="legend-item"><span class="legend-color" style="background: #e74c3c;"></span> Bi mục tiêu</div>
+                    <div class="legend-item"><span class="legend-color" style="background: rgba(46, 204, 113, 0.8);"></span> Đường đi thẳng</div>
+                    <div class="legend-item"><span class="legend-color" style="background: rgba(52, 152, 219, 0.8);"></span> Đường băng (bank)</div>
+                    <div class="legend-item"><span class="legend-color" style="background: rgba(155, 89, 182, 0.8);"></span> Đường kick</div>
+                    <div class="legend-item"><span class="legend-color" style="background: rgba(241, 196, 15, 0.8);"></span> Ghost ball</div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="controls-bar">
+            <div class="controls-bar-item" id="spin-control">
+                <h3>Điều Chỉnh Spin</h3>
+                <div class="spin-widget">
+                    <div class="cue-ball-spin" id="spinSelector">
+                        <div class="spin-point" id="spinPoint"></div>
+                        <div class="spin-label top-label">Follow (đẩy)</div>
+                        <div class="spin-label bottom-label">Draw (kéo)</div>
+                        <div class="spin-label left-label">Trái</div>
+                        <div class="spin-label right-label">Phải</div>
+                        <div class="spin-crosshair horizontal"></div>
+                        <div class="spin-crosshair vertical"></div>
+                    </div>
+                    <div class="spin-info">
+                        <div class="spin-readout">
+                            <label>Spin dọc:</label>
+                            <span id="spinVertical">Trung tâm (stop/stun)</span>
+                        </div>
+                        <div class="spin-readout">
+                            <label>Spin ngang (English):</label>
+                            <span id="spinHorizontal">Trung tâm</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="controls-bar-item" id="power-control">
+                <h3>Lực Đánh</h3>
+                <div class="power-slider-container">
+                    <input type="range" id="powerSlider" min="1" max="10" value="5" class="power-slider">
+                    <div class="power-labels">
+                        <span>Nhẹ</span>
+                        <span>Vừa</span>
+                        <span>Mạnh</span>
+                    </div>
+                    <div class="power-value">Lực: <span id="powerValue">5</span>/10</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="fpp-section" id="fpp-view-section">
+            <div class="fpp-header">
+                <h2>Góc Nhìn Người Chơi (FPP)</h2>
+                <button id="btn-fpp-fullscreen" class="btn-fpp-fullscreen" title="Toàn màn hình">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M1 1h5V0H0v6h1V1zm14 0h-5V0h6v6h-1V1zM1 15h5v1H0v-6h1v5zm14 0h-5v1h6v-6h-1v5z"/>
+                    </svg>
+                </button>
+            </div>
+            <div id="fpp-container"></div>
+            <div class="fpp-legend">
+                <span class="legend-tip">&#9679; Điểm chạm</span>
+                <span class="legend-aim">&#9679; Đường đánh</span>
+                <span style="color:#2ecc71;">&#9679; Lỗ mục tiêu</span>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <div class="panel-section" id="shot-info">
+                <h2>Thông Tin Thế Đánh</h2>
+                <div id="shot-placeholder" class="placeholder-text">
+                    <p>Đặt bi cái và bi mục tiêu lên bàn, sau đó nhấn <strong>"Phân Tích Thế Đánh"</strong></p>
+                </div>
+                <div id="shot-results" class="shot-results" style="display: none;"></div>
+            </div>
+
+            <div class="panel-section" id="techniques-ref">
+                <h2>Tham Khảo Kỹ Thuật</h2>
+                <div class="technique-list">
+                    <details class="technique-item">
+                        <summary>🎯 Đánh thẳng (Straight shot)</summary>
+                        <p>Bi cái, bi mục tiêu và lỗ thẳng hàng. Đánh trực tiếp vào tâm bi mục tiêu.</p>
+                        <ul>
+                            <li><strong>Khi nào dùng:</strong> Khi 3 điểm thẳng hàng</li>
+                            <li><strong>Độ khó:</strong> ★☆☆☆☆</li>
+                            <li><strong>Tip:</strong> Giữ cơ thẳng, nhắm vào tâm bi mục tiêu</li>
+                        </ul>
+                    </details>
+                    <details class="technique-item">
+                        <summary>📐 Đánh cắt (Cut shot)</summary>
+                        <p>Đánh vào cạnh bi mục tiêu để thay đổi hướng đi của nó vào lỗ.</p>
+                        <ul>
+                            <li><strong>Khi nào dùng:</strong> Khi bi không thẳng hàng với lỗ</li>
+                            <li><strong>Độ khó:</strong> ★★☆☆☆ đến ★★★★☆</li>
+                            <li><strong>Tip:</strong> Nhắm vào "ghost ball" - vị trí bi cái cần đến khi tiếp xúc</li>
+                        </ul>
+                    </details>
+                    <details class="technique-item">
+                        <summary>💎 Đánh băng (Bank shot)</summary>
+                        <p>Bi mục tiêu bật vào thành bàn rồi vào lỗ. Góc tới = góc phản xạ.</p>
+                        <ul>
+                            <li><strong>Khi nào dùng:</strong> Khi không có đường thẳng vào lỗ</li>
+                            <li><strong>Độ khó:</strong> ★★★☆☆</li>
+                            <li><strong>Tip:</strong> Tưởng tượng bàn gương, nhắm vào lỗ "ảo" phía sau thành</li>
+                        </ul>
+                    </details>
+                    <details class="technique-item">
+                        <summary>🦵 Đánh kick (Kick shot)</summary>
+                        <p>Bi cái bật vào thành bàn trước khi chạm bi mục tiêu.</p>
+                        <ul>
+                            <li><strong>Khi nào dùng:</strong> Khi có vật cản giữa bi cái và bi mục tiêu</li>
+                            <li><strong>Độ khó:</strong> ★★★★☆</li>
+                            <li><strong>Tip:</strong> Sử dụng hệ thống kim cương trên thành bàn để tính góc</li>
+                        </ul>
+                    </details>
+                    <details class="technique-item">
+                        <summary>🔄 Đánh kéo (Draw shot)</summary>
+                        <p>Đánh phần dưới bi cái tạo backspin, bi cái quay ngược lại.</p>
+                        <ul>
+                            <li><strong>Khi nào dùng:</strong> Khi cần bi cái quay lại để lấy vị trí</li>
+                            <li><strong>Độ khó:</strong> ★★★☆☆</li>
+                            <li><strong>Tip:</strong> Đánh thấp, cơ phải đâm xuyên qua bi, giữ cơ nằm ngang</li>
+                        </ul>
+                    </details>
+                    <details class="technique-item">
+                        <summary>⏩ Đánh đẩy (Follow shot)</summary>
+                        <p>Đánh phần trên bi cái tạo topspin, bi cái tiếp tục đi theo hướng ban đầu.</p>
+                        <ul>
+                            <li><strong>Khi nào dùng:</strong> Khi cần bi cái tiến về phía trước</li>
+                            <li><strong>Độ khó:</strong> ★★☆☆☆</li>
+                            <li><strong>Tip:</strong> Đánh cao trên bi, cơ đâm xuyên qua</li>
+                        </ul>
+                    </details>
+                    <details class="technique-item">
+                        <summary>🛑 Stop shot</summary>
+                        <p>Bi cái dừng lại tại chỗ sau khi va chạm.</p>
+                        <ul>
+                            <li><strong>Khi nào dùng:</strong> Khi muốn bi cái đứng yên tại vị trí va chạm</li>
+                            <li><strong>Độ khó:</strong> ★★☆☆☆</li>
+                            <li><strong>Tip:</strong> Đánh vào chính giữa bi, lực vừa phải</li>
+                        </ul>
+                    </details>
+                    <details class="technique-item">
+                        <summary>🌀 Đánh xoáy (English/Side spin)</summary>
+                        <p>Đánh bên trái/phải bi cái tạo spin ngang.</p>
+                        <ul>
+                            <li><strong>Khi nào dùng:</strong> Khi cần thay đổi góc bật thành, hoặc lấy position</li>
+                            <li><strong>Độ khó:</strong> ★★★★☆</li>
+                            <li><strong>Tip:</strong> English trái → bi cái bật sang phải khi chạm thành</li>
+                        </ul>
+                    </details>
+                    <details class="technique-item">
+                        <summary>🌊 Massé shot</summary>
+                        <p>Dựng cơ gần thẳng đứng và đánh mạnh, tạo đường cong cho bi cái.</p>
+                        <ul>
+                            <li><strong>Khi nào dùng:</strong> Khi cần bi cái đi cong để vòng qua vật cản</li>
+                            <li><strong>Độ khó:</strong> ★★★★★</li>
+                            <li><strong>Tip:</strong> Dựng cơ 60-80°, đánh nhanh và mạnh</li>
+                        </ul>
+                    </details>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="pool-engine.js"></script>
+    <script src="fpp-view.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
